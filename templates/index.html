@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Humana | Claim Story AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .humana-green { background-color: #509E2F; }
+        .humana-text { color: #509E2F; }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex flex-col font-sans">
+    <header class="humana-green text-white p-4 shadow-md flex items-center gap-4">
+        <svg viewBox="0 0 24 30" width="24" height="30" fill="white"><path d="M16.5.8v10.5H9.8c-1.3 0-2.4-1.1-2.4-2.4V.8c.1-.4-.3-.8-.7-.8H0v30h6.7c.4 0 .8-.4.8-.8V18.4h6.7c1.3 0 2.4 1.1 2.4 2.4v8.4c0 .4.4.8.8.8H24V0h-6.7c-.4 0-.8.4-.8.8z"/></svg>
+        <h1 class="text-xl font-bold">Claim Story AI</h1>
+        <div id="status" class="ml-auto text-sm font-semibold text-green-200">Connecting...</div>
+    </header>
+    <main class="flex-grow overflow-y-auto p-4 space-y-4" id="chat-window">
+        <!-- Messages will appear here -->
+    </main>
+    <footer class="p-4 bg-white border-t">
+        <form id="chat-form" class="flex gap-2">
+            <input type="text" id="chat-input" class="border p-2 flex-grow rounded focus:ring-2 focus:ring-[#509E2F] outline-none" placeholder="How can I assist you today?" required>
+            <button type="submit" class="humana-green text-white px-6 py-2 rounded font-semibold hover:bg-[#407D26]">Send</button>
+        </form>
+    </footer>
+
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const statusIndicator = document.getElementById('status');
+        
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const ws = new WebSocket(protocol + window.location.host + '/ws/chat');
+        
+        let currentAgentBubble = null;
+
+        ws.onopen = () => {
+            statusIndicator.innerText = "Connected";
+            statusIndicator.className = "ml-auto text-sm font-semibold text-white";
+        };
+
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            if (!currentAgentBubble) {
+                currentAgentBubble = document.createElement('div');
+                currentAgentBubble.className = "bg-white p-4 rounded shadow border-l-4 border-[#509E2F]";
+                currentAgentBubble.innerHTML = `<p class="font-bold humana-text mb-1">Agent</p><p class="whitespace-pre-wrap"></p>`;
+                chatWindow.appendChild(currentAgentBubble);
+            }
+            currentAgentBubble.querySelector('p:last-child').innerText += data.response;
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        };
+        
+        chatForm.onsubmit = (e) => {
+            e.preventDefault();
+            const message = chatInput.value;
+            ws.send(JSON.stringify({input: message}));
+            
+            const userMsg = document.createElement('div');
+            userMsg.className = "bg-blue-50 p-4 rounded shadow text-right";
+            userMsg.innerHTML = `<p class="font-bold text-blue-800 mb-1">You</p><p>${message}</p>`;
+            chatWindow.appendChild(userMsg);
+            
+            chatInput.value = '';
+            currentAgentBubble = null; // Reset bubble for next response
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        };
+    </script>
+</body>
+</html>

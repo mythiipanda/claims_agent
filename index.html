@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claim Story AI | Member Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .markdown-content p { margin-bottom: 0.5rem; }
+        .markdown-content ul { list-style-type: disc; margin-left: 1.5rem; }
+        .tool-call { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-indigo-700 text-white py-4 px-6 shadow-lg flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <span class="text-xl font-bold tracking-tight">Claim Story AI</span>
+            <span class="bg-indigo-500 text-xs px-2 py-1 rounded-full uppercase">Proactive</span>
+        </div>
+        <div id="status" class="text-sm font-medium text-indigo-200">Connecting...</div>
+    </header>
+
+    <!-- Chat Container -->
+    <main id="chat-window" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 max-w-4xl mx-auto w-full">
+        <!-- Welcome Message -->
+        <div class="flex justify-start">
+            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm max-w-[85%]">
+                <p class="text-slate-800">Welcome to <strong>Claim Story AI</strong>. I can help with claim status, benefit coverage, or authorization questions. How can I assist you today?</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="bg-white border-t border-slate-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <form id="chat-form" class="max-w-4xl mx-auto flex gap-3">
+            <input type="text" id="chat-input" 
+                class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                placeholder="Enter member ID or ask about a claim status...">
+            <button type="submit" 
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-md">
+                Send
+            </button>
+        </form>
+    </footer>
+
+    <script>
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const ws = new WebSocket(protocol + window.location.host + '/ws/chat');
+        const status = document.getElementById('status');
+        const activeAgent = document.getElementById('active-agent');
+        const chatWindow = document.getElementById('chat-window');
+        
+        ws.onopen = () => status.innerText = "● READY";
+        ws.onclose = () => status.innerText = "○ Disconnected";
+        
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            if (data.type === 'text') {
+                removeStatusIndicator();
+                addMessage(data.response, 'agent');
+            } else if (data.type === 'status') {
+                showStatusIndicator(data.message);
+            } else if (data.type === 'agent_info') {
+                activeAgent.innerText = "Active: " + data.name;
+            }
+        };
+
+        function showStatusIndicator(msg) {
+            removeStatusIndicator();
+            const div = document.createElement('div');
+            div.id = "streaming-status";
+            div.className = "text-xs text-slate-500 italic ml-2 tool-call";
+            div.innerText = msg;
+            chatWindow.appendChild(div);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function removeStatusIndicator() {
+            const existing = document.getElementById('streaming-status');
+            if (existing) existing.remove();
+        }
+        
+        function addMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const bubbleClass = sender === 'user' 
+                ? 'bg-indigo-600 text-white rounded-tr-none' 
+                : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none';
+            
+            const content = (sender === 'agent' && typeof marked !== 'undefined') ? marked.parse(text) : text;
+            
+            div.innerHTML = `
+                <div class="${bubbleClass} rounded-2xl p-4 shadow-sm max-w-[85%]">
+                    <div class="${sender === 'agent' ? 'markdown-content' : ''}">${content}</div>
+                </div>
+            `;
+            
+            chatWindow.appendChild(div);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        document.getElementById('chat-form').onsubmit = (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const val = input.value.trim();
+            if (!val) return;
+
+            ws.send(JSON.stringify({input: val}));
+            addMessage(val, 'user');
+            input.value = '';
+        };
+    </script>
+</body>
+</html>

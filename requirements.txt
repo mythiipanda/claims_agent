@@ -1,0 +1,6 @@
+google-adk
+google-cloud-bigquery
+pandas
+pyarrow
+db-dtypes
+google-genai
